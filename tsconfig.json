@@ -8,6 +8,12 @@
     "experimentalDecorators": true,
     "removeComments": true,
     "noImplicitAny": false,
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "esnext",
+    "resolveJsonModule": true
   }
 }
