@@ -30,49 +30,38 @@ const octokit = new OctokitWithPlugin({
 });
 
 export async function getLastRunInfo(): Promise<LastRun> {
-  return await octokit.repos
-    .getContents({
-      repo,
-      owner,
-      path: 'last_run.json',
-    })
-    .then(r => {
-      const data: any = r.data;
-      if (data.content) {
-        return JSON.parse(Buffer.from(data.content, 'base64').toString());
-      } else {
-        throw Error('Not found');
-      }
-    });
+  const r: any = await octokit.repos.getContents({
+    repo,
+    owner,
+    path: 'last_run.json',
+  });
+
+  if (r && r.data && r.data.content) {
+    return JSON.parse(Buffer.from(r.data.content, 'base64').toString());
+  } else {
+    throw Error('Not found');
+  }
 }
 
 export async function getVersion(): Promise<VersionMetadata> {
-  return await figmaRequest(`/v1/files/${figmaId}/versions`, figmaApiKey).then(
-    (r: FileVersionsResponse) => {
-      if (r.versions.length) {
-        return r.versions[0];
-      }
-    }
-  );
+  const r: FileVersionsResponse = await figmaRequest(`/v1/files/${figmaId}/versions`, figmaApiKey);
+  if (r.versions.length) {
+    return r.versions[0];
+  }
 }
 
-export async function getChangedComponents(
-  dateFrom: string
-): Promise<FullComponentMetadata[]> {
-  return await figmaRequest(
-    `/v1/files/${figmaId}/components`,
-    figmaApiKey
-  ).then((r: ComponentResponse) => {
-    const from = Date.parse(dateFrom);
+export async function getChangedComponents(dateFrom: string): Promise<FullComponentMetadata[]> {
+  const r: ComponentResponse = await figmaRequest(`/v1/files/${figmaId}/components`, figmaApiKey);
 
-    return r.meta.components.filter(component => {
-      const updatedAt = Date.parse(component.updated_at);
-      return updatedAt > from;
-    });
+  const from = Date.parse(dateFrom);
+
+  return r.meta.components.filter(component => {
+    const updatedAt = Date.parse(component.updated_at);
+    return updatedAt > from;
   });
 }
 
-export async function fetchIcons(changed: FullComponentMetadata[]) {
+export async function fetchIcons(changed: FullComponentMetadata[]): Promise<FileImageResponse> {
   return figmaRequest(`/v1/images/${figmaId}`, figmaApiKey, {
     ids: changed.map(c => c.node_id),
     format: 'svg',
