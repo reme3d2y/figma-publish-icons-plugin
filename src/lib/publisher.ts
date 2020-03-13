@@ -1,13 +1,10 @@
 import { Octokit } from '@octokit/rest';
 import createPullRequest from 'octokit-create-pull-request';
-import { figmaRequest } from './figma';
+import { fetchIcons, fetchComponents, fetchVersions } from './figma';
+import { chunk } from './funcs';
 
 export type LastRun = {
   lastModified: string;
-};
-
-export type Changes = {
-  [key: string]: string | null;
 };
 
 export type OpenedPR = {
@@ -17,10 +14,18 @@ export type OpenedPR = {
   // TODO: дописать
 };
 
+export type PR = {
+  title: string;
+  description: string;
+  branch: string;
+  commit: string;
+  changes: {
+    [key: string]: string | null;
+  };
+};
+
 const owner = process.env.GITHUB_OWNER;
 const repo = process.env.GITHUB_REPO;
-const figmaApiKey = process.env.FIGMA_API_KEY;
-const figmaId = process.env.FIGMA_ID;
 
 const OctokitWithPlugin = Octokit.plugin(createPullRequest);
 
@@ -44,47 +49,79 @@ export async function getLastRunInfo(): Promise<LastRun> {
 }
 
 export async function getVersion(): Promise<VersionMetadata> {
-  const r: FileVersionsResponse = await figmaRequest(`/v1/files/${figmaId}/versions`, figmaApiKey);
+  const r = await fetchVersions();
   if (r.versions.length) {
     return r.versions[0];
   }
 }
 
 export async function getChangedComponents(dateFrom: string): Promise<FullComponentMetadata[]> {
-  const r: ComponentResponse = await figmaRequest(`/v1/files/${figmaId}/components`, figmaApiKey);
+  const components = await fetchComponents();
 
   const from = Date.parse(dateFrom);
 
-  return r.meta.components.filter(component => {
+  return components.filter(component => {
     const updatedAt = Date.parse(component.updated_at);
     return updatedAt > from;
   });
 }
 
-export async function fetchIcons(changed: FullComponentMetadata[]): Promise<FileImageResponse> {
-  return figmaRequest(`/v1/images/${figmaId}`, figmaApiKey, {
-    ids: changed.map(c => c.node_id),
-    format: 'svg',
-  });
+export async function loadSvgs(
+  components: FullComponentMetadata[],
+  onIconLoad: (id: string, svg: string) => void
+): Promise<void> {
+  const chunks = chunk(components, 100);
+
+  for (let changed of chunks) {
+    const icons = await fetchIcons(changed);
+
+    for (const [id, url] of Object.entries(icons.images)) {
+      await fetch(url)
+        .then(r => r.text())
+        .then((content: string) => onIconLoad(id, content));
+    }
+  }
 }
 
-export async function openPR(
-  title: string,
-  description: string,
-  branch: string,
-  commit: string,
-  changes: Changes
-): Promise<OpenedPR> {
+export async function openPR(pr: PR): Promise<OpenedPR> {
   return await octokit.createPullRequest({
     owner,
     repo,
-    title,
-    body: description,
+    title: pr.title,
+    body: pr.description,
     base: 'master',
-    head: branch,
+    head: pr.branch,
     changes: {
-      files: changes,
-      commit,
+      files: pr.changes,
+      commit: pr.commit,
     },
   });
+}
+
+export function createPR(
+  components: FullComponentMetadata[],
+  icons: { [key: string]: string },
+  version: VersionMetadata
+): PR {
+  const iconNames = components.map(c => c.name).join(', ');
+
+  const initialData = {
+    'last_run.json': JSON.stringify({
+      lastModified: version.created_at,
+    }),
+  };
+
+  const changes = components.reduce((changes, component) => {
+    if (icons[component.node_id]) {
+      changes[`${component.name}.svg`] = icons[component.node_id];
+    }
+    return changes;
+  }, initialData);
+
+  const title = `add icons: ${iconNames}`;
+  const description = `Добавлены новые иконки: ${iconNames}`;
+  const branch = `feat/add-new-icons-${version.id}`;
+  const commit = `feat(icons): add icons ${iconNames}`;
+
+  return { title, description, branch, commit, changes };
 }

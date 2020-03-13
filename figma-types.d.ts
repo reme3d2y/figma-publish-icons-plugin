@@ -725,15 +725,15 @@ interface ComponentMetadata {
 
 interface FrameInfo {
   /** Id of the frame node within the figma file */
-  readonly node_id: string;
+  readonly nodeId: string;
   /** The name of the frame */
   readonly name: string;
   /** Background color of the frame */
-  readonly background_color: string;
+  readonly backgroundColor: string;
   /** Id of the frame's residing page */
-  readonly page_id: string;
+  readonly pageId: string;
   /** Name of the frame's residing page */
-  readonly page_name: string;
+  readonly pageName: string;
 }
 
 interface SharedElement extends ComponentMetadata {
