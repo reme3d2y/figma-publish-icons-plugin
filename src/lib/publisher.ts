@@ -26,7 +26,7 @@ const OctokitWithPlugin = Octokit.plugin(createPullRequest);
 
 const octokit = new OctokitWithPlugin({
   auth: process.env.GITHUB_ACCESS_TOKEN,
-  userAgent: 'publish-icons-plugin v1.0.0',
+  userAgent: 'figma-publish-icons-plugin v1.0.0',
 });
 
 export async function getLastRunInfo(): Promise<LastRun> {

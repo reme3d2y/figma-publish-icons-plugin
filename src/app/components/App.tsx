@@ -14,7 +14,7 @@ import {
   openPR,
   LastRun,
   OpenedPR,
-} from '../lib/publisher';
+} from '../../lib/publisher';
 
 import '../styles/app.css';
 
