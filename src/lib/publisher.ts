@@ -4,10 +4,6 @@ import { fetchIcons, fetchComponents, fetchVersions } from './figma';
 import { prepareName } from './icons';
 import { chunk } from './funcs';
 
-export type LastRun = {
-  lastModified: string;
-};
-
 export type OpenedPR = {
   data: {
     html_url: string;
@@ -35,7 +31,7 @@ const octokit = new OctokitWithPlugin({
   userAgent: 'figma-publish-icons-plugin v1.0.0',
 });
 
-export async function getLastRunInfo(): Promise<LastRun> {
+export async function getLastRunInfo(): Promise<VersionMetadata> {
   const r: any = await octokit.repos.getContents({
     repo,
     owner,
@@ -63,7 +59,7 @@ export async function getChangedComponents(dateFrom: string): Promise<FullCompon
 
   return components.filter(component => {
     const updatedAt = Date.parse(component.updated_at);
-    return updatedAt > from;
+    return !from || updatedAt > from;
   });
 }
 
@@ -104,14 +100,19 @@ export function createPR(
   icons: { [key: string]: string },
   version: VersionMetadata
 ): PR {
+  /**
+   * TODO: Записывать в last_run иконки, которые не удалось загрузить.
+   * Пробовать загрузить эти иконки при след. запуске
+   */
+
   const meta = {
-    'last_run.json': JSON.stringify({
-      lastModified: version.created_at,
-    }),
+    'last_run.json': JSON.stringify(version),
   };
 
   const iconsChanges = components.reduce((changes, component) => {
-    changes[prepareName(component)] = icons[component.node_id];
+    if (component.node_id in icons) {
+      changes[prepareName(component)] = icons[component.node_id];
+    }
     return changes;
   }, {});
 

@@ -13,7 +13,6 @@ import {
   loadSvgs,
   createPR,
   openPR,
-  LastRun,
   OpenedPR,
 } from '../../lib/publisher';
 import { validate, prepareSvg, prepareName } from '../../lib/icons';
@@ -22,12 +21,17 @@ import { formatLastSyncDate } from '../../lib/funcs';
 import 'arui-feather/main.css';
 import '../styles/app.css';
 
+/**
+ * TODO:
+ * Запускать плагин, только если версия опубликована, но еще не была залита в гит.
+ */
+
 const App = ({}) => {
   const [pending, setPending] = useState(false);
   const [ready, setReady] = useState(false);
   const [validExpanded, setValidExpanded] = useState(false);
   const [invalidExpanded, setInvalidExpanded] = useState(false);
-  const [lastRun, setLastRun] = useState<LastRun | null>();
+  const [lastRun, setLastRun] = useState<VersionMetadata | null>();
   const [version, setVersion] = useState<VersionMetadata | null>(null);
   const [changed, setChanged] = useState<FullComponentMetadata[] | null>(null);
   const [invalid, setInvalid] = useState<FullComponentMetadata[] | null>(null);
@@ -61,7 +65,9 @@ const App = ({}) => {
 
     try {
       await loadSvgs(changed, (id, svgContent) => {
-        setLoadedIcons(prev => ({ ...prev, [id]: prepareSvg(svgContent) }));
+        if (svgContent) {
+          setLoadedIcons(prev => ({ ...prev, [id]: prepareSvg(svgContent) }));
+        }
       });
 
       setReady(true);
@@ -97,7 +103,7 @@ const App = ({}) => {
         setLastRun(lastRun);
         setVersion(version);
 
-        const changed = await getChangedComponents(lastRun.lastModified);
+        const changed = await getChangedComponents(lastRun.created_at);
         const validIcons = [];
         const invalidIcons = [];
 
@@ -163,7 +169,7 @@ const App = ({}) => {
             className="info-list"
             items={[
               {
-                value: `Последняя синхронизация: ${lastRun ? formatLastSyncDate(lastRun.lastModified) : '...'}`,
+                value: `Последняя синхронизация: ${lastRun ? formatLastSyncDate(lastRun.created_at) : '...'}`,
                 key: '1',
               },
               {
