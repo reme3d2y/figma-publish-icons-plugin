@@ -1,6 +1,7 @@
 import { Octokit } from '@octokit/rest';
 import createPullRequest from 'octokit-create-pull-request';
 import { fetchIcons, fetchComponents, fetchVersions } from './figma';
+import { prepareName } from './icons';
 import { chunk } from './funcs';
 
 export type LastRun = {
@@ -103,25 +104,29 @@ export function createPR(
   icons: { [key: string]: string },
   version: VersionMetadata
 ): PR {
-  const iconNames = components.map(c => c.name).join(', ');
-
-  const initialData = {
+  const meta = {
     'last_run.json': JSON.stringify({
       lastModified: version.created_at,
     }),
   };
 
-  const changes = components.reduce((changes, component) => {
-    if (icons[component.node_id]) {
-      changes[`${component.name}.svg`] = icons[component.node_id];
-    }
+  const iconsChanges = components.reduce((changes, component) => {
+    changes[prepareName(component)] = icons[component.node_id];
     return changes;
-  }, initialData);
+  }, {});
 
-  const title = `add icons: ${iconNames}`;
-  const description = `Добавлены новые иконки: ${iconNames}`;
+  const changes = { ...iconsChanges, ...meta };
+
+  const title = `new icons from version ${version.id}`;
+  let description = `Версия документа: ${version.id}`;
+  description += `\nДобавлены новые иконки:`;
+  description += `\n`;
+  description += Object.keys(iconsChanges)
+    .map((name, i) => `${i + 1}. ${name}`)
+    .join(`\n`);
+
   const branch = `feat/add-new-icons-${version.id}`;
-  const commit = `feat(icons): add icons ${iconNames}`;
+  const commit = `feat(icons): add ${components.length} icons`;
 
   return { title, description, branch, commit, changes };
 }

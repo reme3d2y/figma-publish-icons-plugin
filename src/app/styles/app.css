@@ -22,7 +22,7 @@
 .content {
   flex: 1;
   overflow: auto;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
 }
 
 .actions {
@@ -35,6 +35,11 @@
   margin-bottom: 40px;
 }
 
+.info-list {
+  font-size: 14px;
+  padding: 0 0 0 32px;
+}
+
 .button.cancel {
   margin-right: auto;
 }
@@ -45,4 +50,37 @@
 
 .error {
   color: red;
+}
+
+.changes > .link {
+  display: inline-block;
+  margin-bottom: 10px;
+}
+
+.changes .list {
+  font-size: 12px;
+  padding: 0 0 0 24px;
+}
+
+.changes .list li {
+  display: flex;
+  align-items: center;
+}
+
+.changes .icon {
+  margin-right: 4px;
+}
+
+.pr-link {
+  margin-top: 10px;
+  display: inline-block;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(11, 31, 53, 0.3);
+  color: #0b1f35;
+  line-height: 1.5;
+}
+
+.pr-link:visited,
+.pr-link:active {
+  color: #0b1f35;
 }

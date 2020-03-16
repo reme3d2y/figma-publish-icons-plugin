@@ -2,11 +2,8 @@ const fsPromises = require('fs').promises;
 import path from 'path';
 import { figmaRequest } from '../lib/figma';
 
-const figmaId = 'QoGuPDB1hAMoMMqsQQ4Mx7lB';
-const figmaApiKey = '37437-1078b1f1-7f8d-4f8f-8c5c-2e02b7c82271';
-
-export async function fetchIcons(nodeIds) {
-  return figmaRequest(`/v1/images/${figmaId}`, figmaApiKey, {
+export async function fetchIcons(nodeIds: string[]) {
+  return figmaRequest(`/v1/images/${process.env.FIGMA_ID}`, process.env.FIGMA_API_KEY, {
     ids: nodeIds,
     format: 'svg',
   });

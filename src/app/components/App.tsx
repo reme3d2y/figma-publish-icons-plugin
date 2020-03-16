@@ -2,7 +2,10 @@ import React, { useCallback, useState, useEffect } from 'react';
 import Button from 'arui-feather/button';
 import Spin from 'arui-feather/spin';
 import Heading from 'arui-feather/heading';
+import SlideDown from 'arui-feather/slide-down';
+import Link from 'arui-feather/link';
 import List from 'arui-feather/list';
+import OkIcon from 'arui-feather/icon/ui/ok';
 import {
   getLastRunInfo,
   getVersion,
@@ -13,7 +16,8 @@ import {
   LastRun,
   OpenedPR,
 } from '../../lib/publisher';
-import { prepareSvg, prepareName } from '../../lib/icons';
+import { validate, prepareSvg, prepareName } from '../../lib/icons';
+import { formatLastSyncDate } from '../../lib/funcs';
 
 import 'arui-feather/main.css';
 import '../styles/app.css';
@@ -21,9 +25,12 @@ import '../styles/app.css';
 const App = ({}) => {
   const [pending, setPending] = useState(false);
   const [ready, setReady] = useState(false);
+  const [validExpanded, setValidExpanded] = useState(false);
+  const [invalidExpanded, setInvalidExpanded] = useState(false);
   const [lastRun, setLastRun] = useState<LastRun | null>();
   const [version, setVersion] = useState<VersionMetadata | null>(null);
   const [changed, setChanged] = useState<FullComponentMetadata[] | null>(null);
+  const [invalid, setInvalid] = useState<FullComponentMetadata[] | null>(null);
   const [loadedIcons, setLoadedIcons] = useState<{ [key: string]: string }>({});
   const [openedPR, setOpenedPR] = useState<OpenedPR | null>(null);
   const [error, setError] = useState('');
@@ -38,6 +45,8 @@ const App = ({}) => {
 
     try {
       const openedPR = await openPR(createPR(changed, loadedIcons, version));
+      setValidExpanded(false);
+      setInvalidExpanded(false);
       setOpenedPR(openedPR);
     } catch (e) {
       setError(e.message);
@@ -63,6 +72,23 @@ const App = ({}) => {
     }
   }, [changed]);
 
+  const onFocus = useCallback((component: FullComponentMetadata) => {
+    parent.postMessage(
+      { pluginMessage: { type: 'focus', nodeId: component.node_id, pageId: component.containing_frame.pageId } },
+      '*'
+    );
+  }, []);
+
+  const onValidExpand = useCallback(() => {
+    if (!validExpanded) setInvalidExpanded(false);
+    setValidExpanded(!validExpanded);
+  }, [validExpanded]);
+
+  const onInvalidExpand = useCallback(() => {
+    if (!invalidExpanded) setValidExpanded(false);
+    setInvalidExpanded(!invalidExpanded);
+  }, [invalidExpanded]);
+
   useEffect(() => {
     setPending(true);
 
@@ -72,13 +98,14 @@ const App = ({}) => {
         setVersion(version);
 
         const changed = await getChangedComponents(lastRun.lastModified);
-        const validIcons = changed.reduce((acc, component) => {
-          const newName = prepareName(component);
-          if (newName) {
-            acc.push({...component, name: newName});
-          }
-          return acc;
-        }, []);
+        const validIcons = [];
+        const invalidIcons = [];
+
+        changed.forEach(component => {
+          validate(component) ? validIcons.push(component) : invalidIcons.push(component);
+        });
+
+        setInvalid(invalidIcons);
         setChanged(validIcons);
       })
       .catch(e => {
@@ -95,9 +122,17 @@ const App = ({}) => {
         Отмена
       </Button>
 
-      {!ready && (
+      {changed && changed.length === 0 && <Button disabled={true}>Изменений нет</Button>}
+
+      {(!changed || (!ready && changed.length > 0)) && (
         <Button onClick={onPrepare} disabled={pending} icon={<Spin visible={pending} />}>
           Подготовить изменения
+          {changed && changed.length && pending && (
+            <span>
+              {' '}
+              {Object.keys(loadedIcons).length} / {changed.length}
+            </span>
+          )}
         </Button>
       )}
 
@@ -128,7 +163,7 @@ const App = ({}) => {
             className="info-list"
             items={[
               {
-                value: `Последняя синхронизация: ${lastRun ? lastRun.lastModified : '...'}`,
+                value: `Последняя синхронизация: ${lastRun ? formatLastSyncDate(lastRun.lastModified) : '...'}`,
                 key: '1',
               },
               {
@@ -138,20 +173,64 @@ const App = ({}) => {
             ]}
           />
           <Heading size="xs">Изменения</Heading>
+
+          {invalid && (
+            <div className="changes">
+              <Link
+                onClick={onInvalidExpand}
+                text={invalidExpanded ? 'Скрыть' : `Ошибок: ${invalid.length}`}
+                size="s"
+                pseudo={true}
+              />
+              <SlideDown isExpanded={invalidExpanded}>
+                <List
+                  items={invalid.map(component => ({
+                    key: component.name,
+                    value: (
+                      <Link
+                        onClick={onFocus.bind(this, component)}
+                        text={`${component.containing_frame.pageName}/${component.name}`}
+                        size="s"
+                        pseudo={true}
+                      />
+                    ),
+                  }))}
+                />
+              </SlideDown>
+            </div>
+          )}
+
           {changed && (
-            <List
-              type="ordered"
-              className="changes"
-              items={changed.map(component => ({
-                key: component.name,
-                value: `${component.name}
-                ${loadedIcons[component.node_id] ? ' +' : ''}`,
-              }))}
-            />
+            <div className="changes">
+              <Link
+                onClick={onValidExpand}
+                text={validExpanded ? 'Скрыть' : `Изменений: ${changed.length}`}
+                size="s"
+                pseudo={true}
+              />
+              <SlideDown isExpanded={validExpanded}>
+                <List
+                  items={changed.map(component => ({
+                    key: component.name,
+                    value: (
+                      <>
+                        {loadedIcons[component.node_id] && <OkIcon colored={true} size="s" />}
+                        <Link
+                          onClick={onFocus.bind(this, component)}
+                          text={prepareName(component)}
+                          size="s"
+                          pseudo={true}
+                        />
+                      </>
+                    ),
+                  }))}
+                />
+              </SlideDown>
+            </div>
           )}
 
           {openedPR && (
-            <a href={openedPR.data.html_url} target="_blank">
+            <a href={openedPR.data.html_url} target="_blank" className="pr-link">
               {openedPR.data.html_url}
             </a>
           )}

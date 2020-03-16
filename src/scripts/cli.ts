@@ -20,9 +20,9 @@ program
   .parse(process.argv);
 
 (async () => {
-  const repoDir = '/Users/alexyatsenko/projects/alfa-ui-primitives/icons/';
-  const figmaId = 'QoGuPDB1hAMoMMqsQQ4Mx7lB';
-  const figmaApiKey = '37437-1078b1f1-7f8d-4f8f-8c5c-2e02b7c82271';
+  const repoDir = process.env.REPO_DIR;
+  const figmaId = process.env.FIGMA_ID;
+  const figmaApiKey = process.env.FIGMA_API_KEY;
 
   if (program.figma) {
     await parseFigma(figmaId, figmaApiKey, program.outDir);

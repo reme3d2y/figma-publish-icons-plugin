@@ -1,6 +1,16 @@
+export enum PAGES {
+  icon = 'icon',
+  click = 'click',
+}
+
+export const ICON_NAME_RX = {
+  [PAGES.icon]: /^(?:icon_[a-z0-9-]+\/)?icon_([a-z0-9-]+)_([a-z0-9]+)(?:_([a-z0-9]+))$/i,
+  [PAGES.click]: /^[a-z0-9-]+ \/ ([a-z0-9-]+)$/i,
+};
+
 const nameParsers = {
-  icon: (origName: string) => {
-    const m = /^(?:icon_[a-z0-9-]+\/)?icon_([a-z0-9-]+)_([a-z0-9]+)(?:_([a-z0-9]+))$/i.exec(origName);
+  [PAGES.icon]: (origName: string) => {
+    const m = ICON_NAME_RX[PAGES.icon].exec(origName);
 
     return {
       name: m[1],
@@ -8,7 +18,16 @@ const nameParsers = {
       color: m[3] || '',
     };
   },
-};
+  [PAGES.click]: (origName: string) => {
+    const m = ICON_NAME_RX[PAGES.click].exec(origName);
+
+    return {
+      name: m[1],
+      size: '24',
+      color: '',
+    };
+  },
+} as const;
 
 export function prepareSvg(svgContent: string): string {
   const parser = new DOMParser();
@@ -20,7 +39,7 @@ export function prepareSvg(svgContent: string): string {
 
   //TODO: добавить обработку svg
 
-  return svg.outerHTML;
+  return svg.outerHTML + '\n';
 }
 
 function createBlankRect(svg: SVGSVGElement) {
@@ -38,14 +57,16 @@ function createBlankRect(svg: SVGSVGElement) {
   }
 }
 
-export function prepareName(iconComponent: FullComponentMetadata) {
-  try {
-    const page = iconComponent.containing_frame.pageName;
-    const frame = iconComponent.containing_frame.name;
-    const parserFn = nameParsers[page];
-    const icon = parserFn(iconComponent.name);
-    return `${frame.toLowerCase()}/${page}_${icon.name}_${icon.size}${icon.color ? '_' + icon.color : ''}.svg`;
-  } catch (e) {
-    return false;
-  }
+export function validate(iconComponent: FullComponentMetadata): boolean {
+  const page = iconComponent.containing_frame.pageName;
+
+  return page in PAGES && ICON_NAME_RX[PAGES[page]].test(iconComponent.name);
+}
+
+export function prepareName(iconComponent: FullComponentMetadata): string {
+  const page = iconComponent.containing_frame.pageName;
+  const frame = iconComponent.containing_frame.name;
+  const icon = nameParsers[page](iconComponent.name);
+
+  return `${frame.toLowerCase()}/${page}_${icon.name}_${icon.size}${icon.color ? '_' + icon.color : ''}.svg`;
 }
